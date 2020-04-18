@@ -14,9 +14,9 @@
  */
 
 import { DefaultExternalServices, PDFViewerApplication } from "./app.js";
-import { BasePreferences } from "./preferences.js";
 import { DownloadManager } from "./download_manager.js";
 import { GenericL10n } from "./genericl10n.js";
+import { BasePreferences } from "./preferences.js";
 
 if (typeof PDFJSDev !== "undefined" && !PDFJSDev.test("GENERIC")) {
   throw new Error(
@@ -37,7 +37,53 @@ class GenericPreferences extends BasePreferences {
   }
 }
 
+(function listenFindEvents() {
+  const events = [
+    "find",
+    "findagain",
+    "findhighlightallchange",
+    "findcasesensitivitychange",
+    "findentirewordchange",
+    "findbarclose",
+  ];
+  const handleEvent = function ({ type, detail }) {
+    if (!PDFViewerApplication.initialized) {
+      return;
+    }
+    if (type === "findbarclose") {
+      PDFViewerApplication.eventBus.dispatch(type, { source: window });
+      return;
+    }
+    PDFViewerApplication.eventBus.dispatch("find", {
+      source: window,
+      type: type.substring("find".length),
+      query: detail.query,
+      phraseSearch: true,
+      caseSensitive: !!detail.caseSensitive,
+      entireWord: !!detail.entireWord,
+      highlightAll: !!detail.highlightAll,
+      findPrevious: !!detail.findPrevious,
+    });
+  };
+
+  for (const event of events) {
+    window.addEventListener(event, handleEvent);
+  }
+})();
+
 class GenericExternalServices extends DefaultExternalServices {
+  static updateFindControlState(data) {
+    console.log("Updating find control state", data);
+  }
+
+  static updateFindMatchesCount(data) {
+    console.log("Update find matches count", data);
+  }
+
+  static get supportsIntegratedFind() {
+    return true;
+  }
+
   static createDownloadManager(options) {
     return new DownloadManager(options);
   }
